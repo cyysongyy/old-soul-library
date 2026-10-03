@@ -165,7 +165,7 @@ renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate=true;
 
 const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(45,1,0.1,400);
+const camera=new THREE.PerspectiveCamera(45,1,0.2,400);
 const controls=new THREE.OrbitControls(camera,canvas);
 controls.enableDamping=true;controls.dampingFactor=0.08;
 controls.maxPolarAngle=Math.PI/2-0.02;controls.minDistance=1.5;controls.maxDistance=110;
@@ -246,7 +246,7 @@ box(1.4,0.06,6,M.concrete,L/2+4,0.03,6.2);            // side path
 
 // body
 box(L,WALL_TOP-BASE,ZF-ZB,M.white,0,(WALL_TOP+BASE)/2,(ZF+ZB)/2);
-box(L+0.12,BASE,ZF-ZB+0.12,M.graniteD,0,BASE/2,(ZF+ZB)/2);
+box(L+0.12,BASE,ZF-ZB+0.09,M.graniteD,0,BASE/2,(ZF+ZB)/2-0.015);
 // arcade floor
 box(L,FLOOR,ZC-ZF,M.concrete,0,FLOOR/2,(ZF+ZC)/2);
 
@@ -257,17 +257,17 @@ const pierX=[...Array(NP)].map((_,i)=>-L/2+PW/2+i*(L-PW)/(NP-1));
   for(let i=0;i<NP;i++){const xr=pierX[i]+PW/2;s.lineTo(xr,FLOOR);
     if(i<NP-1){const xl=pierX[i+1]-PW/2;s.lineTo(xr,ARCH-CH);s.lineTo(xr+CH,ARCH);s.lineTo(xl-CH,ARCH);s.lineTo(xl,ARCH-CH);s.lineTo(xl,FLOOR);}}
   s.lineTo(L/2,FASCIA_TOP);s.lineTo(-L/2,FASCIA_TOP);s.lineTo(-L/2,FLOOR);
-  const g=new THREE.ExtrudeGeometry(s,{depth:0.6,bevelEnabled:false});const m=new THREE.Mesh(g,M.granite);m.position.z=ZC-0.6;m.castShadow=m.receiveShadow=true;scene.add(m);}
+  const g=new THREE.ExtrudeGeometry(s,{depth:0.6,bevelEnabled:false});const m=new THREE.Mesh(g,M.granite);m.position.z=ZC-0.6;m.scale.x=(L-0.06)/L;m.castShadow=m.receiveShadow=true;scene.add(m);}
 // pier capitals and plinths
 for(const x of pierX){box(PW+0.16,0.16,0.76,M.granite,x,ARCH-0.55,ZC-0.3);box(PW+0.12,0.32,0.72,M.granite,x,FLOOR+0.16,ZC-0.3);}
 // end openings of the corridor
-function endFrame(sign){const D=ZC-ZF,s=new THREE.Shape();s.moveTo(0,FLOOR);s.lineTo(0.35,FLOOR);s.lineTo(0.35,ARCH-CH);s.lineTo(0.35+CH,ARCH);s.lineTo(D-PW-CH,ARCH);s.lineTo(D-PW,ARCH-CH);s.lineTo(D-PW,FLOOR);s.lineTo(D,FLOOR);s.lineTo(D,FASCIA_TOP);s.lineTo(0,FASCIA_TOP);s.lineTo(0,FLOOR);
+function endFrame(sign){const D=ZC-ZF-0.02,s=new THREE.Shape();s.moveTo(0,FLOOR);s.lineTo(0.35,FLOOR);s.lineTo(0.35,ARCH-CH);s.lineTo(0.35+CH,ARCH);s.lineTo(D-PW-CH,ARCH);s.lineTo(D-PW,ARCH-CH);s.lineTo(D-PW,FLOOR);s.lineTo(D,FLOOR);s.lineTo(D,FASCIA_TOP);s.lineTo(0,FASCIA_TOP);s.lineTo(0,FLOOR);
   const m=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:0.6,bevelEnabled:false}),M.granite);m.rotation.y=-Math.PI/2;m.position.set(sign>0?L/2:-L/2+0.6,0,ZF);m.castShadow=m.receiveShadow=true;scene.add(m);}
 endFrame(1);endFrame(-1);
 // corridor ceiling
-box(L,0.08,ZC-ZF,M.soffit,0,4.0,(ZF+ZC)/2);
+box(L-0.3,0.08,ZC-ZF-0.3,M.soffit,0,4.0,(ZF+ZC)/2-0.15);
 // front wall dado (inside arcade)
-box(L,0.9,0.06,M.graniteD,0,FLOOR+0.45,ZF+0.03);
+box(L-0.3,0.9,0.06,M.graniteD,0,FLOOR+0.45,ZF+0.03);
 
 // front wall openings per bay
 const bayPattern=['D','W','W','D','D','W','W','D'];
