@@ -88,6 +88,18 @@ body.touring .plaque,body.touring .ref,body.touring .dock{display:none!important
 .t-end button:first-child{background:#f3ead9;color:#2b2622;border-color:#f3ead9}
 .t-end[hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){.t-text span.cur{animation:none}.t-title,.t-text{transition:none}}
+.gate{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;text-align:center;color:#f7efe2;
+  background:radial-gradient(ellipse at center,rgba(12,10,9,.12),rgba(12,10,9,.55));-webkit-tap-highlight-color:transparent}
+.gate[hidden]{display:none!important}
+.gate h2{font-family:var(--serif);font-weight:900;font-size:clamp(46px,11vw,84px);letter-spacing:.42em;margin:0 0 0 .42em;text-shadow:0 2px 20px rgba(0,0,0,.5)}
+.gate .sub{font-family:var(--serif);font-size:15px;letter-spacing:.3em;margin:0;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.gate .go{margin-top:26px;display:inline-flex;align-items:center;gap:10px;font:500 17px var(--sans);letter-spacing:.2em;padding:14px 26px;border-radius:40px;background:rgba(247,239,226,.92);color:#2b2622;box-shadow:0 6px 24px rgba(0,0,0,.3);animation:gPulse 2.4s ease-in-out infinite}
+.gate .note{font-size:12px;letter-spacing:.08em;opacity:.8;margin:6px 0 0}
+.gate .free{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom,0px));font:500 13px var(--sans);letter-spacing:.14em;color:#f7efe2;background:rgba(22,19,17,.45);border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:9px 16px;cursor:pointer}
+.gate .free:focus-visible,.gate:focus-visible{outline:2px solid #f3ead9;outline-offset:2px}
+body.gated .plaque,body.gated .ref,body.gated .dock{display:none!important}
+@keyframes gPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@media (prefers-reduced-motion: reduce){.gate .go{animation:none}}
 </style>
 </head>
 <body>
@@ -116,6 +128,13 @@ body.touring .plaque,body.touring .ref,body.touring .dock{display:none!important
     <button id="v-soul" class="soul">♪ 老靈魂</button>
   </div>
   <div class="hint">拖曳旋轉 · 滾輪／雙指縮放 · 右鍵／雙指平移</div>
+</div>
+<div class="gate" id="gate" role="button" tabindex="0" aria-label="輕觸開始聆聽老靈魂">
+  <h2>老靈魂</h2>
+  <p class="sub">校園日式圖書館 · 3D 聆聽導覽</p>
+  <span class="go">▶ 輕觸開始</span>
+  <p class="note">約三分鐘 · 請開啟聲音（iPhone 請關閉靜音模式）</p>
+  <button class="free" id="gFree" type="button">只看 3D 模型</button>
 </div>
 <div id="tour" hidden aria-live="polite">
   <div class="t-title" id="tTitle"><h2>老靈魂</h2><p>文 · Young　　樂 · 即時生成</p><small>請開啟聲音（iPhone 請關閉靜音模式）</small></div>
@@ -615,10 +634,19 @@ function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);c
 addEventListener('resize',resize);resize();
 go('front',true);setDay(.35);
 
+
+// ---------- opening gate: one tap starts music + tour (browsers need a tap before sound) ----------
+const gate=document.getElementById('gate');let gated=true;document.body.classList.add('gated');setDay(.16);
+function openGate(tour){if(!gated)return;gated=false;gate.hidden=true;document.body.classList.remove('gated');
+  if(tour)startTour();else{setDay(.35);go('front');}}
+gate.addEventListener('click',()=>openGate(true));
+gate.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openGate(true);}});
+document.getElementById('gFree').addEventListener('click',e=>{e.stopPropagation();openGate(false);});
 dirty=3;addEventListener('resize',()=>dirty=3);controls.addEventListener('change',()=>dirty=2);document.fonts&&document.fonts.ready.then(()=>dirty=3);setTimeout(()=>dirty=3,1500);
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function loop(now){requestAnimationFrame(loop);
   if(tween){const k=Math.min(1,(now-tween.start)/tween.dur),e=ease(k);camera.position.lerpVectors(tween.from.p,tween.to.p,e);controls.target.lerpVectors(tween.from.t,tween.to.t,e);if(k>=1)tween=null;}
+  if(gated){const g=now*.00006;camera.position.set(Math.sin(g)*9,1.9+Math.sin(g*1.7)*.4,42);controls.target.set(0,3.2,2);camera.lookAt(controls.target);renderer.render(scene,camera);return;}
   if(touring&&AC)updateTour();
   const moved=controls.enabled?controls.update():false;if(touring||moved||tween||dirty>0){renderer.render(scene,camera);dirty=Math.max(0,dirty-1);}}
 requestAnimationFrame(loop);
