@@ -67,8 +67,9 @@ body.touring .plaque,body.touring .ref,body.touring .dock{display:none!important
 .t-text{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));width:min(24em,calc(100vw - 28px));z-index:1;
   font-family:var(--serif);font-weight:400;font-size:clamp(24px,3.9vw,32px);line-height:1.6;letter-spacing:.06em;text-align:center;text-wrap:balance;text-shadow:0 2px 12px rgba(0,0,0,.8),0 0 3px rgba(0,0,0,.5);transition:opacity 1.4s ease}
 .t-text .no{display:block;font-size:13px;letter-spacing:.5em;opacity:.7;margin-bottom:6px;font-family:var(--sans)}
-.t-text span{display:none}
-.t-text span.prev{display:block;font-size:.62em;opacity:.5;margin-bottom:.3em}
+.t-text span{display:none;transition:opacity 1.2s ease,font-size .8s ease}
+.t-text span.p1,.t-text span.p2,.t-text span.p3{display:block;font-size:.78em;margin-bottom:.15em}
+.t-text span.p3{opacity:.32}.t-text span.p2{opacity:.5}.t-text span.p1{opacity:.72}
 .t-text span.cur{display:block;animation:tIn 1.6s ease both}
 @keyframes tIn{from{opacity:0;transform:translateY(.2em)}to{opacity:1;transform:none}}
 .t-bar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));pointer-events:auto;z-index:2;
@@ -607,7 +608,7 @@ chBtns.forEach(b=>b.addEventListener('click',()=>{AC.resume();tPause.textContent
 function updateTour(){const tt=Math.max(0,AC.currentTime-tourStart);const k=keyAt(Math.min(tt,TOTAL));camera.position.copy(k.p);controls.target.copy(k.t);camera.lookAt(k.t);setDay(dayAt(Math.min(tt,TOTAL)));
   const c=chAt(tt);if(c!==curCh){curCh=c;renderText(c);chBtns.forEach(b=>b.setAttribute('aria-current',+b.dataset.ch===c));}
   tTitle.style.opacity=tt<5?1:0;tProg.style.width=Math.min(100,tt/TOTAL*100)+'%';
-  if(c>=1&&c<=4){const sp=tText.querySelectorAll('span'),dur=TCH[c].e-TCH[c].s;let n=0;sp.forEach((s,i)=>{if(tt-TCH[c].s>1.2+i*(dur*.86/sp.length))n=i+1;});sp.forEach((s,i)=>{s.classList.toggle('cur',i===n-1);s.classList.toggle('prev',i===n-2);});tText.style.opacity=(TCH[c].e-tt<1.4)?0:1;}
+  if(c>=1&&c<=4){const sp=tText.querySelectorAll('span'),dur=TCH[c].e-TCH[c].s;let n=0;sp.forEach((s,i)=>{if(tt-TCH[c].s>1.2+i*(dur*.86/sp.length))n=i+1;});sp.forEach((s,i)=>{const d=n-1-i;s.className=d===0?'cur':(d>=1&&d<=3?'p'+d:'');});tText.style.opacity=(TCH[c].e-tt<1.4)?0:1;}
   if(tt>=TOTAL-2&&!ended){ended=true;tEnd.hidden=false;}}
 
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w<600?58:45;camera.updateProjectionMatrix();}
