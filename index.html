@@ -360,8 +360,8 @@ function doorUnit(o){const {x0,w}=o,x1=o.x1,fr=0.075,y0=FLOOR+0.04;
     pc('rust',hx,hy,z+0.03,0.045,0.2,0.012);pc('metal',hx+(side?0.05:-0.05),hy+0.05,z+0.05,0.11,0.018,0.018);pc('metal',hx,hy+0.05,z+0.04,0.02,0.02,0.03);}}
 OPEN.forEach(o=>o.type==='W'?windowUnit(o):doorUnit(o));
 const JOINMAT={frame:new THREE.MeshStandardMaterial({color:0x8d8672,roughness:.7}),
-  door:new THREE.MeshStandardMaterial({color:0xcfcabd,roughness:.65}),
-  slat:new THREE.MeshStandardMaterial({color:0xb7b0a0,roughness:.75}),
+  door:new THREE.MeshStandardMaterial({color:0xe2d6b9,roughness:.6}),   // warm ivory-white, sampled from photos (hue ~42°, low saturation)
+  slat:new THREE.MeshStandardMaterial({color:0xe2d6b9,roughness:.65}),   // vent boards: same ivory as the doors
   metal:new THREE.MeshStandardMaterial({color:0xd8d4cc,metalness:.85,roughness:.3}),
   rust:new THREE.MeshStandardMaterial({color:0x8a5b3c,metalness:.3,roughness:.8})};
 const unitBox=new THREE.BoxGeometry(1,1,1);
@@ -581,7 +581,7 @@ function sign(){[['館',-3.9],['書',0],['圖',3.9]].forEach(([ch,x])=>{const t=
 scene.background=tex(4,256,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#2f6db8');gr.addColorStop(.55,'#8db6e3');gr.addColorStop(1,'#e3edf3');g.fillStyle=gr;g.fillRect(0,0,w,h);});
 scene.background.wrapS=scene.background.wrapT=THREE.ClampToEdgeWrapping;scene.background.repeat.set(1,1);
 scene.fog=new THREE.Fog(0xcfe0ef,90,220);
-const hemi=new THREE.HemisphereLight(0xdbe9ff,0x6d7a4a,0.6);scene.add(hemi);
+const hemi=new THREE.HemisphereLight(0xdbe9ff,0x8a7f6c,0.6);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xfff1dc,1.45);sun.position.set(28,38,30);sun.castShadow=true;
 sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-38,right:38,top:38,bottom:-38,near:1,far:130});sun.shadow.bias=-0.0006;sun.shadow.normalBias=0.03;scene.add(sun);
 
@@ -622,7 +622,7 @@ const skyCan=scene.background.image;
 function setDay(d){d=Math.max(0,Math.min(1,d));let i=0;while(i<SKYK.length-2&&d>SKYK[i+1][0])i++;const A=SKYK[i],B=SKYK[i+1],t=(d-A[0])/(B[0]-A[0]);
   const g=skyCan.getContext('2d'),gr=g.createLinearGradient(0,0,0,skyCan.height);const top=lerpHex(A[1],B[1],t),mid=lerpHex(A[2],B[2],t),bot=lerpHex(A[3],B[3],t);
   gr.addColorStop(0,top);gr.addColorStop(.55,mid);gr.addColorStop(1,bot);g.fillStyle=gr;g.fillRect(0,0,skyCan.width,skyCan.height);scene.background.needsUpdate=true;
-  scene.fog.color.set(bot);sun.color.set(lerpHex(A[4],B[4],t));sun.intensity=A[5]+(B[5]-A[5])*t;hemi.intensity=A[6]+(B[6]-A[6])*t;hemi.color.set(lerpHex('#dbe9ff',top,.35));
+  scene.fog.color.set(bot);sun.color.set(lerpHex(A[4],B[4],t));sun.intensity=A[5]+(B[5]-A[5])*t;hemi.intensity=A[6]+(B[6]-A[6])*t;hemi.color.set(lerpHex('#eef0f0',top,.12));
   const ph=0.12+d*2.9;sun.position.set(-48*Math.cos(ph),6+52*Math.sin(ph),26);
   const night=Math.max(0,Math.min(1,(d-.8)/.2));glowMats.forEach(m=>m.emissiveIntensity=night*1.1);lampMat.emissiveIntensity=night*2.2;
   renderer.toneMappingExposure=1.05+night*.2;dirty=3;}
