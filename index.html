@@ -245,10 +245,10 @@ box(L+40,0.04,3.2,M.concrete,0,0.02,-10.5);           // back footpath
 box(1.4,0.06,6,M.concrete,L/2+4,0.03,6.2);            // side path
 
 // body
-box(L,WALL_TOP-BASE,ZF-ZB,M.white,0,(WALL_TOP+BASE)/2,(ZF+ZB)/2);
-box(L+0.12,BASE,ZF-ZB+0.09,M.graniteD,0,BASE/2,(ZF+ZB)/2-0.015);
+box(L,WALL_TOP-BASE,ZF-0.2-ZB,M.white,0,(WALL_TOP+BASE)/2,(ZF-0.2+ZB)/2);
+box(L+0.12,BASE,ZF-0.2-ZB+0.06,M.graniteD,0,BASE/2,(ZF-0.2+ZB)/2-0.03);
 // arcade floor
-box(L,FLOOR,ZC-ZF,M.concrete,0,FLOOR/2,(ZF+ZC)/2);
+const corrFloor=box(L,FLOOR,ZC-ZF,M.concrete,0,FLOOR/2,(ZF+ZC)/2);
 
 // ---------- arcade facade (extruded, piers + chamfered openings) ----------
 const NP=9, PW=0.75, CH=0.38;
@@ -266,14 +266,121 @@ function endFrame(sign){const D=ZC-ZF-0.02,s=new THREE.Shape();s.moveTo(0,FLOOR)
 endFrame(1);endFrame(-1);
 // corridor ceiling
 box(L-0.3,0.08,ZC-ZF-0.3,M.soffit,0,4.0,(ZF+ZC)/2-0.15);
-// front wall dado (inside arcade)
-box(L-0.3,0.9,0.06,M.graniteD,0,FLOOR+0.45,ZF+0.03);
-
-// front wall openings per bay
+// ================= corridor front wall, rebuilt from the corridor photos =================
+// recessed openings, granite dado + projecting plinth, khaki sash windows with board vents,
+// panelled double doors with transoms, coffered ceiling, jointed concrete floor
+const _r=(a,b)=>a+Math.random()*(b-a);
+const WR=0.2, ZW=ZF-WR;                       // wall facing depth (reveal depth)
+const DADO=1.3, PLINTH=0.35, OPEN_TOP=FLOOR+2.75, HEAD_TOP=WALL_TOP;
 const bayPattern=['D','W','W','D','D','W','W','D'];
-for(let i=0;i<NP-1;i++){const cx=(pierX[i]+pierX[i+1])/2,zf=ZF+0.08;
-  if(bayPattern[i]==='D'){plane(1.5,2.75,M.door,cx,FLOOR+1.375,zf);box(1.7,0.1,0.1,M.frame,cx,FLOOR+2.78,zf);}
-  else{for(const dx of [-0.8,0.8]){plane(1.35,1.75,M.winFront,cx+dx,2.35,zf);plane(1.35,0.5,M.louver,cx+dx,1.2,zf+0.01);box(1.45,0.06,0.14,M.frame,cx+dx,1.46,zf+0.05);}}}
+const OPEN=[];                                  // {x0,x1,y0,type}
+for(let i=0;i<NP-1;i++){const cx=(pierX[i]+pierX[i+1])/2;
+  if(bayPattern[i]==='D')OPEN.push({cx,w:1.62,type:'D'});
+  else for(const dx of [-1.05,1.05])OPEN.push({cx:cx+dx,w:1.78,type:'W'});}
+OPEN.forEach(o=>{o.x0=o.cx-o.w/2;o.x1=o.cx+o.w/2;o.y0=o.type==='D'?FLOOR:FLOOR+PLINTH;});
+const XL=-L/2,XR=L/2,XLi=-L/2+0.55,XRi=L/2-0.55;
+function gaps(x0,x1,list,pad=0){const out=[];let a=x0;list.forEach(o=>{if(o.x0-pad>a)out.push([a,o.x0-pad]);a=Math.max(a,o.x1+pad);});if(x1>a)out.push([a,x1]);return out;}
+function worldUV(m,w,h,d){const uv=m.geometry.attributes.uv,s=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];for(let f=0;f<6;f++)for(let v=0;v<4;v++){const i=f*4+v;uv.setXY(i,uv.getX(i)*s[f][0],uv.getY(i)*s[f][1]);}uv.needsUpdate=true;return m;}
+function slab(a,b,y0,y1,z0,z1,mat){if(b-a<0.005)return;worldUV(box(b-a,y1-y0,z1-z0,mat,(a+b)/2,(y0+y1)/2,(z0+z1)/2),b-a,y1-y0,z1-z0);}
+const whiteWall=new THREE.MeshStandardMaterial({color:0xefebe2,roughness:.95});
+const dadoTex=granite('#6a6761');dadoTex.repeat.set(.55,.55);
+const dadoMat=new THREE.MeshStandardMaterial({map:dadoTex,roughness:.92});
+const plinthTex=granite('#8b877f');plinthTex.repeat.set(.55,.55);
+const plinthMat=new THREE.MeshStandardMaterial({map:plinthTex,roughness:.95});
+// white head band over every opening + white piers between openings above the dado
+slab(XL,XR,OPEN_TOP,HEAD_TOP,ZW,ZF,whiteWall);
+gaps(XL,XR,OPEN).forEach(([a,b])=>slab(a,b,FLOOR+DADO,OPEN_TOP,ZW,ZF,whiteWall));
+// granite dado between openings (stands 3 cm proud of the plaster)
+gaps(XLi,XRi,OPEN).forEach(([a,b])=>slab(a,b,FLOOR,FLOOR+DADO,ZW,ZF+0.03,dadoMat));
+// lighter projecting plinth: continuous under windows, broken at doors
+gaps(XLi,XRi,OPEN.filter(o=>o.type==='D'),0.012).forEach(([a,b])=>{slab(a,b,FLOOR,FLOOR+PLINTH,ZW,ZF+0.11,plinthMat);
+  const cap=box(b-a,0.05,0.07,plinthMat,(a+b)/2,FLOOR+PLINTH+0.012,ZF+0.075);cap.rotation.x=-0.5;});
+
+// ---- joinery, built from instanced boxes ----
+const JOIN={frame:[],door:[],slat:[],metal:[],rust:[]};
+const pc=(k,x,y,z,w,h,d)=>JOIN[k].push([x,y,z,w,h,d]);
+const glassReflTex=tex(256,256,(g,W,H)=>{const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#c9d6dc');gr.addColorStop(.35,'#7f9097');gr.addColorStop(.62,'#2d3a3c');gr.addColorStop(1,'#3f4b48');g.fillStyle=gr;g.fillRect(0,0,W,H);
+  for(let i=0;i<26;i++){g.fillStyle=`rgba(${_r(20,60)},${_r(40,70)},${_r(30,55)},${_r(.25,.6)})`;const x=_r(0,W),w=_r(8,40);g.beginPath();g.ellipse(x,H*_r(.45,.7),w,_r(20,60),0,0,7);g.fill();}
+  g.fillStyle='rgba(255,255,255,.12)';g.beginPath();g.moveTo(0,H*.3);g.lineTo(W*.55,0);g.lineTo(W*.75,0);g.lineTo(0,H*.55);g.fill();},1,1);
+const glassFrostTex=tex(64,64,(g,W,H)=>{const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#dfe5e1');gr.addColorStop(1,'#b9c2bd');g.fillStyle=gr;g.fillRect(0,0,W,H);speck(g,W,H,300,['#cfd6d2','#e9eeeb'],1.2);},1,1);
+M.glassR=new THREE.MeshStandardMaterial({map:glassReflTex,roughness:.15,metalness:.1});
+M.glassF=new THREE.MeshStandardMaterial({map:glassFrostTex,roughness:.6});
+function glass(x,y,z,w,h,mat){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(x,y,z);m.receiveShadow=true;scene.add(m);}
+// a sash: perimeter rails + muntin grid + one glass sheet behind
+function sash(k,x0,y0,w,h,z,cols,rows,mat,rail=0.05,mun=0.028){const d=0.045;
+  pc(k,x0+rail/2,y0+h/2,z,rail,h,d);pc(k,x0+w-rail/2,y0+h/2,z,rail,h,d);
+  pc(k,x0+w/2,y0+rail/2,z,w,rail,d);pc(k,x0+w/2,y0+h-rail/2,z,w,rail,d);
+  const iw=w-2*rail,ih=h-2*rail;
+  for(let c=1;c<cols;c++)pc(k,x0+rail+iw*c/cols,y0+h/2,z,mun,ih,d*.8);
+  for(let r=1;r<rows;r++)pc(k,x0+w/2,y0+rail+ih*r/rows,z,iw,mun,d*.8);
+  glass(x0+w/2,y0+h/2,z-d*.45,iw,ih,mat);}
+const ZJ=ZF-0.11;                               // joinery plane, recessed 11 cm
+function windowUnit(o){const {x0,w,y0}=o,x1=o.x1,fr=0.07;
+  // outer frame
+  pc('frame',x0+fr/2,(y0+OPEN_TOP)/2,ZJ,fr,OPEN_TOP-y0,0.11);pc('frame',x1-fr/2,(y0+OPEN_TOP)/2,ZJ,fr,OPEN_TOP-y0,0.11);
+  pc('frame',(x0+x1)/2,OPEN_TOP-fr/2,ZJ,w,fr,0.11);
+  // bottom: board vent panel (手動下層風口) — vertical boards between two rails
+  const vH=0.62,iw=w-2*fr;
+  pc('frame',(x0+x1)/2,y0+0.04,ZJ+0.01,w,0.08,0.12);
+  for(let s=0,n=14;s<n;s++){const bw=iw/n;pc('slat',x0+fr+bw*(s+.5),y0+0.08+(vH-0.08)/2,ZJ-0.005+(s%2)*0.018,bw*0.92,vH-0.08,0.025);}
+  // sill rail with a slight projection
+  const ys=y0+vH;pc('frame',(x0+x1)/2,ys+0.04,ZJ+0.03,w+0.06,0.08,0.16);
+  // main sliding sashes: 3 x 5 panes each, overlapping, offset in depth
+  const mY=ys+0.08,mH=1.25,half=iw/2+0.025;
+  sash('frame',x0+fr,mY,half,mH,ZJ-0.025,3,5,M.glassR);
+  sash('frame',x1-fr-half,mY,half,mH,ZJ+0.025,3,5,M.glassR);
+  // transom bar + two frosted transom sashes (3 panes each)
+  const tY=mY+mH;pc('frame',(x0+x1)/2,tY+0.035,ZJ,w,0.07,0.11);
+  const tH=OPEN_TOP-fr-(tY+0.07);
+  sash('frame',x0+fr,tY+0.07,iw/2,tH,ZJ,3,1,M.glassF,0.045);
+  sash('frame',x0+fr+iw/2,tY+0.07,iw/2,tH,ZJ,3,1,M.glassF,0.045);}
+function doorUnit(o){const {x0,w}=o,x1=o.x1,fr=0.075,y0=FLOOR+0.04;
+  // granite threshold step, slightly proud of the wall
+  box(w+0.04,0.06,WR+0.14,plinthMat,(x0+x1)/2,FLOOR+0.03,ZW+(WR+0.14)/2);
+  pc('door',x0+fr/2,(y0+OPEN_TOP)/2,ZJ,fr,OPEN_TOP-y0,0.12);pc('door',x1-fr/2,(y0+OPEN_TOP)/2,ZJ,fr,OPEN_TOP-y0,0.12);
+  pc('door',(x0+x1)/2,OPEN_TOP-fr/2,ZJ,w,fr,0.12);
+  const iw=w-2*fr,tH=0.5,dTop=OPEN_TOP-fr-tH-0.08;
+  pc('door',(x0+x1)/2,dTop+0.04,ZJ,w,0.08,0.13);                  // transom bar
+  sash('door',x0+fr,dTop+0.08,iw/2,tH,ZJ,3,1,M.glassR,0.045);
+  sash('door',x0+fr+iw/2,dTop+0.08,iw/2,tH,ZJ,3,1,M.glassR,0.045);
+  // two leaves: upper 2 x 3 glass, lower two raised panels
+  const lw=iw/2,lh=dTop-y0;
+  for(const [lx,side] of [[x0+fr,0],[x0+fr+lw,1]]){const st=0.07,z=ZJ+0.005;
+    pc('door',lx+st/2,y0+lh/2,z,st,lh,0.05);pc('door',lx+lw-st/2,y0+lh/2,z,st,lh,0.05);
+    pc('door',lx+lw/2,y0+0.07,z,lw,0.14,0.05);pc('door',lx+lw/2,y0+lh-st/2,z,lw,st,0.05);
+    const midY=y0+lh*0.37;pc('door',lx+lw/2,midY,z,lw,0.1,0.05);      // lock rail
+    pc('door',lx+lw/2,(y0+midY)/2,z-0.012,lw-0.02,midY-y0,0.015);   // panel backing board
+    const gY=midY+0.05,gH=y0+lh-st-gY;
+    sash('door',lx+st-0.01,gY,lw-2*st+0.02,gH,z-0.002,2,3,M.glassR,0.02,0.03);
+    const pw=(lw-2*st-0.06)/2,ph=midY-0.05-(y0+0.14)-0.06;
+    for(let p=0;p<2;p++){const px=lx+st+0.03+pw/2+p*(pw+0.06-0.06+0.06*0);pc('door',px+p*0.0,y0+0.14+0.03+ph/2,z+0.012,pw-0.03,ph,0.03);}
+    pc('door',lx+lw/2,y0+0.14+0.03+ph/2,z+0.008,0.05,ph,0.035);
+    // rust-stained escutcheon and lever on the meeting stile (惹鐵鏽的門把)
+    const hx=side?lx+0.05:lx+lw-0.05,hy=midY+0.12;
+    pc('rust',hx,hy,z+0.03,0.045,0.2,0.012);pc('metal',hx+(side?0.05:-0.05),hy+0.05,z+0.05,0.11,0.018,0.018);pc('metal',hx,hy+0.05,z+0.04,0.02,0.02,0.03);}}
+OPEN.forEach(o=>o.type==='W'?windowUnit(o):doorUnit(o));
+const JOINMAT={frame:new THREE.MeshStandardMaterial({color:0x8d8672,roughness:.7}),
+  door:new THREE.MeshStandardMaterial({color:0xcfcabd,roughness:.65}),
+  slat:new THREE.MeshStandardMaterial({color:0xb7b0a0,roughness:.75}),
+  metal:new THREE.MeshStandardMaterial({color:0xd8d4cc,metalness:.85,roughness:.3}),
+  rust:new THREE.MeshStandardMaterial({color:0x8a5b3c,metalness:.3,roughness:.8})};
+const unitBox=new THREE.BoxGeometry(1,1,1);
+for(const k in JOIN){const a=JOIN[k];if(!a.length)continue;const im=new THREE.InstancedMesh(unitBox,JOINMAT[k],a.length),o=new THREE.Object3D();
+  a.forEach((p,i)=>{o.position.set(p[0],p[1],p[2]);o.scale.set(p[3],p[4],p[5]);o.updateMatrix();im.setMatrixAt(i,o.matrix);});im.castShadow=im.receiveShadow=true;scene.add(im);}
+
+// ---- coffered corridor ceiling: rib grid + recessed round lights ----
+{const ribs=[],zA=ZF+0.02,zB=ZC-0.62,yR=3.96-0.045;
+  for(let k=0;k<=3;k++){const z=zA+(zB-zA)*k/3;ribs.push([0,yR,z,L-0.4,0.09,0.07]);}
+  for(let x=-L/2+0.4;x<L/2-0.3;x+=0.82)ribs.push([x,yR,(zA+zB)/2,0.07,0.09,zB-zA]);
+  const im=new THREE.InstancedMesh(unitBox,M.soffit,ribs.length),o=new THREE.Object3D();
+  ribs.forEach((p,i)=>{o.position.set(p[0],p[1],p[2]);o.scale.set(p[3],p[4],p[5]);o.updateMatrix();im.setMatrixAt(i,o.matrix);});im.receiveShadow=true;scene.add(im);}
+// jointed concrete for the corridor floor
+/*floor*/const corrFloorTex=tex(512,256,(g,W,H)=>{g.fillStyle='#9a9993';g.fillRect(0,0,W,H);
+  for(let i=0;i<60;i++){const v=_r(-22,18);g.fillStyle=`rgba(${120+v},${120+v},${116+v},.35)`;g.beginPath();g.ellipse(_r(0,W),_r(0,H),_r(20,90),_r(10,40),_r(0,3),0,7);g.fill();}
+  speck(g,W,H,4000,['#8a8984','#b3b2ac'],1.5);g.strokeStyle='rgba(60,60,58,.7)';g.lineWidth=2;g.strokeRect(1,1,W-2,H-2);},1,1);
+corrFloorTex.repeat.set(L/2.6,1);
+M.corrFloor=new THREE.MeshStandardMaterial({map:corrFloorTex,roughness:.9});corrFloor.material=M.corrFloor;
+
 
 // ---------- back elevation ----------
 const NB=10, bayW=L/NB;
@@ -508,8 +615,8 @@ const SKYK=[[0,'#6d8fc9','#f1c7a8','#fbe3c9','#ffd6a8',1.0,.55],[.35,'#2f6db8','
 const _c1=new THREE.Color(),_c2=new THREE.Color();
 function lerpHex(a,b,t){return _c1.set(a).lerp(_c2.set(b),t).getStyle();}
 const lampMat=new THREE.MeshStandardMaterial({color:0xf0e6d0,emissive:0xffcf8a,emissiveIntensity:0});
-for(let i=0;i<NP-1;i++)box(0.32,0.07,0.32,lampMat,(pierX[i]+pierX[i+1])/2,3.92,5.0).castShadow=false;
-const glowMats=[M.winDark,M.winFrost,M.winFront,M.door];
+for(let i=0;i<NP-1;i++){const l=new THREE.Mesh(new THREE.CylinderGeometry(.11,.11,.025,20),lampMat);l.position.set((pierX[i]+pierX[i+1])/2+0.41,3.945,4.65);scene.add(l);}
+const glowMats=[M.winDark,M.winFrost,M.winFront,M.door,M.glassR,M.glassF];
 glowMats.forEach(m=>{m.emissive=new THREE.Color(0xffbf73);m.emissiveMap=m.map;m.emissiveIntensity=0;});
 const skyCan=scene.background.image;
 function setDay(d){d=Math.max(0,Math.min(1,d));let i=0;while(i<SKYK.length-2&&d>SKYK[i+1][0])i++;const A=SKYK[i],B=SKYK[i+1],t=(d-A[0])/(B[0]-A[0]);
@@ -542,20 +649,23 @@ function keyAt(tt){let i=0;while(i<KEYS.length-2&&tt>KEYS[i+1][0])i++;const a=KE
 function dayAt(tt){let i=0;while(i<DAYK.length-2&&tt>DAYK[i+1][0])i++;const a=DAYK[i],b=DAYK[i+1];return a[1]+(b[1]-a[1])*Math.max(0,Math.min(1,(tt-a[0])/(b[0]-a[0])));}
 
 // ================= music (original, synthesized live) =================
-let AC=null,master,reverbIn,delayIn,windGain,bus=null;
+let AC=null,duck,voiceOut,master,reverbIn,delayIn,windGain,bus=null;
 const mtof=m=>440*Math.pow(2,(m-69)/12);
 function impulse(sec){const r=AC.sampleRate,n=r*sec|0,b=AC.createBuffer(2,n,r);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2.6);}return b;}
 function initAudio(){AC=new (window.AudioContext||window.webkitAudioContext)();
   const comp=AC.createDynamicsCompressor();comp.threshold.value=-18;comp.ratio.value=3;comp.connect(AC.destination);
   master=AC.createGain();master.gain.value=0;master.connect(comp);
+  duck=AC.createGain();duck.connect(master);
+  voiceOut=AC.createGain();voiceOut.gain.value=1.15;voiceOut.connect(master);
   const conv=AC.createConvolver();conv.buffer=impulse(5);reverbIn=AC.createGain();reverbIn.gain.value=.5;reverbIn.connect(conv);conv.connect(master);
+  {const vr=AC.createGain();vr.gain.value=.12;voiceOut.connect(vr);vr.connect(reverbIn);}
   delayIn=AC.createGain();const dl=AC.createDelay(2);dl.delayTime.value=BEAT*.75;const fb=AC.createGain();fb.gain.value=.33;const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2400;
   delayIn.connect(dl);dl.connect(lp);lp.connect(fb);fb.connect(dl);const dOut=AC.createGain();dOut.gain.value=.4;lp.connect(dOut);dOut.connect(master);lp.connect(reverbIn);
   // leaves & wind: filtered noise
   const nb=AC.createBuffer(1,AC.sampleRate*4,AC.sampleRate),nd=nb.getChannelData(0);let last=0;for(let i=0;i<nd.length;i++){last=(last+.02*(Math.random()*2-1))/1.02;nd[i]=last*3.5;}
   const ns=AC.createBufferSource();ns.buffer=nb;ns.loop=true;const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=700;bp.Q.value=.6;windGain=AC.createGain();windGain.gain.value=0;ns.connect(bp);bp.connect(windGain);windGain.connect(master);ns.start();}
 function newBus(){if(bus){const old=bus;old.g.gain.setTargetAtTime(0,AC.currentTime,.25);setTimeout(()=>old.g.disconnect(),1500);}
-  const g=AC.createGain();g.connect(master);const dry=AC.createGain();dry.gain.value=.8;dry.connect(g);const rev=AC.createGain();rev.connect(g);rev.connect(reverbIn);rev.gain.value=0;
+  const g=AC.createGain();g.connect(duck);const dry=AC.createGain();dry.gain.value=.8;dry.connect(g);const rev=AC.createGain();rev.connect(g);rev.connect(reverbIn);rev.gain.value=0;
   const r2=AC.createGain();r2.gain.value=.55;g.connect(r2);r2.connect(reverbIn);const d2=AC.createGain();d2.gain.value=1;d2.connect(delayIn);bus={g,dry,dly:d2};}
 // soft plucked string — somewhere between a koto and a kalimba
 function pluck(t,m,vel,pan,echo,box){const f=mtof(m),p=AC.createStereoPanner();p.pan.value=pan;const g=AC.createGain(),dec=box?2.2:3.4;
@@ -593,15 +703,38 @@ function params(tt){const c=chAt(tt),f=(tt-TCH[c].s)/(TCH[c].e-TCH[c].s);
     case 4:return{c,f,den:lerp(.3,.04,f),birds:f<.5?.12:0,heart:f>.82?.42:0,wind:.015,prog:'A'};
     default:return{c,f,den:0,birds:0,heart:tt<171?.3:0,wind:lerp(.015,0,f),prog:'A'};}}
 let tourStart=0,nextBeat=0,melIdx=5,themeDone={},themeUntil=0,outroPad=false,lastTick=0,schedTimer=null;
+// ================= narration (voice1–4.mp3 or .m4a beside index.html) =================
+// each chapter stretches to fit its recording; subtitles follow the voice
+const VOICE_DELAY=1.6,voice={buf:[],src:null,started:{}};let RSTART=[],REAL_TOTAL=TOTAL;
+const VOICE_RAW=[];
+[1,2,3,4].forEach(i=>{VOICE_RAW[i]=fetch('voice'+i+'.mp3').then(r=>r.ok?r.arrayBuffer():fetch('voice'+i+'.m4a').then(r=>r.ok?r.arrayBuffer():null)).catch(()=>null);});
+function rebuildWarp(){RSTART=[];let r=0;for(let c=0;c<TCH.length;c++){RSTART.push(r);const sl=TCH[c].e-TCH[c].s,vb=voice.buf[c];r+=vb?Math.max(sl,VOICE_DELAY+vb.duration+2.8):sl;}RSTART.push(r);REAL_TOTAL=r;}
+rebuildWarp();
+function r2s(r){for(let c=TCH.length-1;c>=0;c--)if(r>=RSTART[c]){const k=(TCH[c].e-TCH[c].s)/(RSTART[c+1]-RSTART[c]);return Math.min(TOTAL,TCH[c].s+(r-RSTART[c])*k);}return 0;}
+function s2r(s){const c=chAt(s),k=(RSTART[c+1]-RSTART[c])/(TCH[c].e-TCH[c].s);return RSTART[c]+(s-TCH[c].s)*k;}
+let voicesTried=false;
+async function decodeVoices(){if(voicesTried)return;voicesTried=true;
+  for(let i=1;i<=4;i++){const ab=await VOICE_RAW[i];if(!ab)continue;
+    voice.buf[i]=await new Promise(res=>{try{const p=AC.decodeAudioData(ab,res,()=>res(null));if(p&&p.catch)p.catch(()=>res(null));}catch(e){res(null);}});}
+  const keepS=touring?r2s(AC.currentTime-tourStart):0;rebuildWarp();if(touring)tourStart=AC.currentTime-s2r(keepS);}
+function duckTo(v,at,tc){const g=duck.gain;g.cancelScheduledValues(at);g.setValueAtTime(g.value,at);g.setTargetAtTime(v,at,tc);}
+function stopVoice(){if(voice.src){try{voice.src.stop();}catch(e){}voice.src=null;}if(duck)duckTo(1,AC.currentTime,.4);}
+function playVoice(c,when,off){stopVoice();const src=AC.createBufferSource();src.buffer=voice.buf[c];src.connect(voiceOut);src.start(when,off);voice.src=src;
+  const end=when+voice.buf[c].duration-off;duckTo(.4,AC.currentTime,.5);duck.gain.setTargetAtTime(1,end+.2,1.4);}
+const inVoice=r=>{for(let c=1;c<=4;c++){const vb=voice.buf[c];if(vb){const vs=RSTART[c]+VOICE_DELAY;if(r>=vs&&r<vs+vb.duration)return true;}}return false;};
+
 function schedule(){if(!AC||AC.state!=='running')return;const now=AC.currentTime,dt=Math.min(.2,now-lastTick);lastTick=now;
-  const P=params(now-tourStart);windGain.gain.setTargetAtTime(P.wind,now,1.5);
+  const rNow=now-tourStart;
+  for(let c=1;c<=4;c++){const vb=voice.buf[c];if(!vb||voice.started[c])continue;const vs=RSTART[c]+VOICE_DELAY;
+    if(rNow+.3>=vs&&rNow<vs+vb.duration-.5){voice.started[c]=1;const when=tourStart+vs;playVoice(c,Math.max(when,now+.02),Math.max(0,now-when));}}
+  const P=params(r2s(rNow));windGain.gain.setTargetAtTime(P.wind,now,1.5);
   if(rnd()<P.birds*dt)bird(now+rr(.05,.25),rr(-.85,.85));
-  while(nextBeat<now+.35){const t=nextBeat,tt=t-tourStart,bn=Math.round(tt/BEAT),Q=params(tt);
-    if(tt>=0&&tt<TOTAL){
-      if(Q.c===5){if(!outroPad){outroPad=true;const ch=PROG.A[0];pad(t,ch[1],9,.022);bass(t,ch[0],.16);master.gain.setTargetAtTime(0,tourStart+170,2.4);}}
+  while(nextBeat<now+.35){const t=nextBeat,tt=t-tourStart,bn=Math.round(tt/BEAT),st=r2s(Math.max(0,tt)),Q=params(st),vo=inVoice(tt);
+    if(tt>=0&&st<TOTAL){
+      if(Q.c===5){if(!outroPad){outroPad=true;const ch=PROG.A[0];pad(t,ch[1],9,.022);bass(t,ch[0],.16);master.gain.setTargetAtTime(0,tourStart+s2r(170),2.4);}}
       else if(bn%8===0){const ch=PROG[Q.prog][Math.floor(bn/8)%4];pad(t,ch[1],8*BEAT,.02);bass(t,ch[0],.15);}
-      if((Q.c===1||Q.c===4)&&!themeDone[Q.c]&&tt>=TCH[Q.c].s+3.5){themeDone[Q.c]=1;THEME.forEach(([m,b])=>pluck(t+b*BEAT,m,.26,rr(-.15,.15),1));themeUntil=tt+10*BEAT;}
-      else if(tt>themeUntil&&rnd()<Q.den){const st=[-2,-1,-1,1,1,2][Math.floor(rnd()*6)],lo=Q.box?5:1,hi=Q.box?11:8;melIdx=Math.max(lo,Math.min(hi,melIdx+st));
+      if((Q.c===1||Q.c===4)&&!themeDone[Q.c]&&st>=TCH[Q.c].s+3.5){themeDone[Q.c]=1;THEME.forEach(([m,b])=>pluck(t+b*BEAT,m,.26,rr(-.15,.15),1));themeUntil=tt+10*BEAT;}
+      else if(tt>themeUntil&&rnd()<Q.den*(vo?.55:1)){const st=[-2,-1,-1,1,1,2][Math.floor(rnd()*6)],lo=Q.box?5:1,hi=Q.box?11:8;melIdx=Math.max(lo,Math.min(hi,melIdx+st));
         pluck(t,SCALE[melIdx],Q.box?.13:rr(.13,.22),rr(-.5,.5),rnd()<.4,Q.box);
         if(rnd()<.22){const j=Math.max(lo,Math.min(hi,melIdx+(rnd()<.5?-1:1)));pluck(t+BEAT/2,SCALE[j],.1,rr(-.5,.5),0,Q.box);}}
       if(Q.heart>0)heart(t,Q.heart);}
@@ -611,12 +744,12 @@ function schedule(){if(!AC||AC.state!=='running')return;const now=AC.currentTime
 let touring=false,ended=false,curCh=-1;const tourEl=document.getElementById('tour'),tTitle=document.getElementById('tTitle'),tText=document.getElementById('tText'),tEnd=document.getElementById('tEnd'),tProg=document.getElementById('tProg'),tPause=document.getElementById('tPause');
 const chBtns=[...document.querySelectorAll('[data-ch]')];
 function renderText(c){if(c>=1&&c<=4){tText.innerHTML='<b class="no">'+NUMS[c-1]+'</b>'+POEM[c-1].match(/[^，。]+[，。]?/g).map(s=>'<span>'+s+'</span>').join('');}else tText.innerHTML='';}
-function seek(tt){tourStart=AC.currentTime-tt;nextBeat=tourStart+Math.ceil((tt+.05)/BEAT)*BEAT;themeDone={};for(let i=1;i<5;i++)if(TCH[i].s+3.5<tt)themeDone[i]=1;themeUntil=0;outroPad=tt>=TCH[5].s;curCh=-1;ended=false;tEnd.hidden=true;
+function seek(tt){const rr0=s2r(tt);tourStart=AC.currentTime-rr0;nextBeat=tourStart+Math.ceil((rr0+.05)/BEAT)*BEAT;stopVoice();voice.started={};for(let i=1;i<5;i++)if(voice.buf[i]&&rr0>RSTART[i]+VOICE_DELAY+voice.buf[i].duration-.5)voice.started[i]=1;themeDone={};for(let i=1;i<5;i++)if(TCH[i].s+3.5<tt)themeDone[i]=1;themeUntil=0;outroPad=tt>=TCH[5].s;curCh=-1;ended=false;tEnd.hidden=true;
   newBus();master.gain.cancelScheduledValues(AC.currentTime);master.gain.setTargetAtTime(.9,AC.currentTime,.8);}
 async function startTour(){if(!AC)initAudio();await AC.resume().catch(()=>{});lastTick=AC.currentTime;
   touring=true;document.body.classList.add('touring');tourEl.hidden=false;controls.enabled=false;controls.autoRotate=false;spin.setAttribute('aria-pressed','false');tween=null;
-  tPause.textContent='暫停';seek(0);if(!schedTimer)schedTimer=setInterval(schedule,50);}
-function exitTour(){touring=false;if(AC){master.gain.cancelScheduledValues(AC.currentTime);master.gain.setTargetAtTime(0,AC.currentTime,.4);setTimeout(()=>{if(!touring)AC.suspend();},1600);}
+  tPause.textContent='暫停';seek(0);decodeVoices();if(!schedTimer)schedTimer=setInterval(schedule,50);}
+function exitTour(){touring=false;if(AC){stopVoice();master.gain.cancelScheduledValues(AC.currentTime);master.gain.setTargetAtTime(0,AC.currentTime,.4);setTimeout(()=>{if(!touring)AC.suspend();},1600);}
   tourEl.hidden=true;document.body.classList.remove('touring');controls.enabled=true;setDay(.35);go('front');}
 document.getElementById('v-soul').addEventListener('click',startTour);
 document.getElementById('tExit').addEventListener('click',exitTour);
@@ -624,10 +757,13 @@ document.getElementById('tFree').addEventListener('click',exitTour);
 document.getElementById('tAgain').addEventListener('click',()=>{AC.resume();tPause.textContent='暫停';seek(0);});
 tPause.addEventListener('click',()=>{if(AC.state==='running'){AC.suspend();tPause.textContent='繼續';}else{AC.resume();tPause.textContent='暫停';}});
 chBtns.forEach(b=>b.addEventListener('click',()=>{AC.resume();tPause.textContent='暫停';seek(TCH[+b.dataset.ch].s+.01);}));
-function updateTour(){const tt=Math.max(0,AC.currentTime-tourStart);const k=keyAt(Math.min(tt,TOTAL));camera.position.copy(k.p);controls.target.copy(k.t);camera.lookAt(k.t);setDay(dayAt(Math.min(tt,TOTAL)));
+function updateTour(){const rt=Math.max(0,AC.currentTime-tourStart),tt=r2s(rt);const k=keyAt(Math.min(tt,TOTAL));camera.position.copy(k.p);controls.target.copy(k.t);camera.lookAt(k.t);setDay(dayAt(Math.min(tt,TOTAL)));
   const c=chAt(tt);if(c!==curCh){curCh=c;renderText(c);chBtns.forEach(b=>b.setAttribute('aria-current',+b.dataset.ch===c));}
-  tTitle.style.opacity=tt<5?1:0;tProg.style.width=Math.min(100,tt/TOTAL*100)+'%';
-  if(c>=1&&c<=4){const sp=tText.querySelectorAll('span'),dur=TCH[c].e-TCH[c].s;let n=0;sp.forEach((s,i)=>{if(tt-TCH[c].s>1.2+i*(dur*.86/sp.length))n=i+1;});sp.forEach((s,i)=>{const d=n-1-i;s.className=d===0?'cur':(d>=1&&d<=3?'p'+d:'');});tText.style.opacity=(TCH[c].e-tt<1.4)?0:1;}
+  tTitle.style.opacity=tt<5?1:0;tProg.style.width=Math.min(100,rt/REAL_TOTAL*100)+'%';
+  if(c>=1&&c<=4){const sp=[...tText.querySelectorAll('span')];let n=0;const vb=voice.buf[c];
+    if(vb){const vs=RSTART[c]+VOICE_DELAY,f=(rt-vs+.25)/vb.duration,tot=sp.reduce((a,s)=>a+s.textContent.length,0);let cum=0;sp.forEach((s,i)=>{if(f>=cum/tot)n=i+1;cum+=s.textContent.length;});if(rt<vs-.3)n=0;}
+    else{const dur=TCH[c].e-TCH[c].s;sp.forEach((s,i)=>{if(tt-TCH[c].s>1.2+i*(dur*.86/sp.length))n=i+1;});}
+    sp.forEach((s,i)=>{const d=n-1-i;s.className=d===0?'cur':(d>=1&&d<=3?'p'+d:'');});tText.style.opacity=(TCH[c].e-tt<1.4*(TCH[c].e-TCH[c].s)/(RSTART[c+1]-RSTART[c]))?0:1;}
   if(tt>=TOTAL-2&&!ended){ended=true;tEnd.hidden=false;}}
 
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.fov=w<600?58:45;camera.updateProjectionMatrix();}
