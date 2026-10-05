@@ -297,7 +297,7 @@ gaps(XLi,XRi,OPEN.filter(o=>o.type==='D'),0.012).forEach(([a,b])=>{slab(a,b,FLOO
   const cap=box(b-a,0.05,0.07,plinthMat,(a+b)/2,FLOOR+PLINTH+0.012,ZF+0.075);cap.rotation.x=-0.5;});
 
 // ---- joinery, built from instanced boxes ----
-const JOIN={frame:[],door:[],slat:[],metal:[],rust:[]};
+const JOIN={frame:[],door:[],slat:[],gap:[],metal:[],rust:[]};
 const pc=(k,x,y,z,w,h,d)=>JOIN[k].push([x,y,z,w,h,d]);
 const glassReflTex=tex(256,256,(g,W,H)=>{const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#c9d6dc');gr.addColorStop(.35,'#7f9097');gr.addColorStop(.62,'#2d3a3c');gr.addColorStop(1,'#3f4b48');g.fillStyle=gr;g.fillRect(0,0,W,H);
   for(let i=0;i<26;i++){g.fillStyle=`rgba(${_r(20,60)},${_r(40,70)},${_r(30,55)},${_r(.25,.6)})`;const x=_r(0,W),w=_r(8,40);g.beginPath();g.ellipse(x,H*_r(.45,.7),w,_r(20,60),0,0,7);g.fill();}
@@ -305,35 +305,38 @@ const glassReflTex=tex(256,256,(g,W,H)=>{const gr=g.createLinearGradient(0,0,0,H
 const glassFrostTex=tex(64,64,(g,W,H)=>{const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#dfe5e1');gr.addColorStop(1,'#b9c2bd');g.fillStyle=gr;g.fillRect(0,0,W,H);speck(g,W,H,300,['#cfd6d2','#e9eeeb'],1.2);},1,1);
 M.glassR=new THREE.MeshStandardMaterial({map:glassReflTex,roughness:.15,metalness:.1});
 M.glassF=new THREE.MeshStandardMaterial({map:glassFrostTex,roughness:.6});
-function glass(x,y,z,w,h,mat){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(x,y,z);m.receiveShadow=true;scene.add(m);}
+function glass(x,y,z,w,h,mat,dir=1){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);m.position.set(x,y,z);if(dir<0)m.rotation.y=Math.PI;m.receiveShadow=true;scene.add(m);}
 // a sash: perimeter rails + muntin grid + one glass sheet behind
-function sash(k,x0,y0,w,h,z,cols,rows,mat,rail=0.05,mun=0.028){const d=0.045;
+function sash(k,x0,y0,w,h,z,cols,rows,mat,rail=0.05,mun=0.028,dir=1){const d=0.045;
   pc(k,x0+rail/2,y0+h/2,z,rail,h,d);pc(k,x0+w-rail/2,y0+h/2,z,rail,h,d);
   pc(k,x0+w/2,y0+rail/2,z,w,rail,d);pc(k,x0+w/2,y0+h-rail/2,z,w,rail,d);
   const iw=w-2*rail,ih=h-2*rail;
   for(let c=1;c<cols;c++)pc(k,x0+rail+iw*c/cols,y0+h/2,z,mun,ih,d*.8);
   for(let r=1;r<rows;r++)pc(k,x0+w/2,y0+rail+ih*r/rows,z,iw,mun,d*.8);
-  glass(x0+w/2,y0+h/2,z-d*.45,iw,ih,mat);}
+  glass(x0+w/2,y0+h/2,z-dir*d*.45,iw,ih,mat,dir);}
 const ZJ=ZF-0.11;                               // joinery plane, recessed 11 cm
-function windowUnit(o){const {x0,w,y0}=o,x1=o.x1,fr=0.07;
-  // outer frame
-  pc('frame',x0+fr/2,(y0+OPEN_TOP)/2,ZJ,fr,OPEN_TOP-y0,0.11);pc('frame',x1-fr/2,(y0+OPEN_TOP)/2,ZJ,fr,OPEN_TOP-y0,0.11);
-  pc('frame',(x0+x1)/2,OPEN_TOP-fr/2,ZJ,w,fr,0.11);
-  // bottom: board vent panel (手動下層風口) — vertical boards between two rails
+// generic sash window: dir=+1 faces the corridor (+z), dir=-1 faces the back yard (-z)
+function windowAt(x0,x1,y0,top,zc,dir,mainMat){const w=x1-x0,fr=0.07,Z=o=>zc+dir*o;
+  pc('frame',x0+fr/2,(y0+top)/2,zc,fr,top-y0,0.11);pc('frame',x1-fr/2,(y0+top)/2,zc,fr,top-y0,0.11);
+  pc('frame',(x0+x1)/2,top-fr/2,zc,w,fr,0.11);
+  // board vent panel (手動下層風口): dark backing + ivory boards, so every board edge reads as a line
   const vH=0.62,iw=w-2*fr;
-  pc('frame',(x0+x1)/2,y0+0.04,ZJ+0.01,w,0.08,0.12);
-  for(let s=0,n=14;s<n;s++){const bw=iw/n;pc('slat',x0+fr+bw*(s+.5),y0+0.08+(vH-0.08)/2,ZJ-0.005+(s%2)*0.018,bw*0.92,vH-0.08,0.025);}
-  // sill rail with a slight projection
-  const ys=y0+vH;pc('frame',(x0+x1)/2,ys+0.04,ZJ+0.03,w+0.06,0.08,0.16);
-  // main sliding sashes: 3 x 5 panes each, overlapping, offset in depth
-  const mY=ys+0.08,mH=1.25,half=iw/2+0.025;
-  sash('frame',x0+fr,mY,half,mH,ZJ-0.025,3,5,M.glassR);
-  sash('frame',x1-fr-half,mY,half,mH,ZJ+0.025,3,5,M.glassR);
-  // transom bar + two frosted transom sashes (3 panes each)
-  const tY=mY+mH;pc('frame',(x0+x1)/2,tY+0.035,ZJ,w,0.07,0.11);
-  const tH=OPEN_TOP-fr-(tY+0.07);
-  sash('frame',x0+fr,tY+0.07,iw/2,tH,ZJ,3,1,M.glassF,0.045);
-  sash('frame',x0+fr+iw/2,tY+0.07,iw/2,tH,ZJ,3,1,M.glassF,0.045);}
+  pc('frame',(x0+x1)/2,y0+0.04,Z(0.01),w,0.08,0.12);
+  pc('gap',(x0+x1)/2,y0+0.08+(vH-0.08)/2,Z(-0.035),iw,vH-0.08,0.015);
+  const n=Math.max(10,Math.round(iw/0.12)),bw=iw/n;
+  for(let s=0;s<n;s++)pc('slat',x0+fr+bw*(s+.5),y0+0.08+(vH-0.08)/2,Z(-0.012+(s%2)*0.016),bw*0.8,vH-0.08,0.022);
+  pc('frame',(x0+x1)/2,y0+0.08+(vH-0.08)/2,Z(0.012),0.035,vH-0.08,0.03);          // centre muntin of the vent
+  const ys=y0+vH;pc('frame',(x0+x1)/2,ys+0.04,Z(0.03),w+0.06,0.08,0.16);           // sill rail
+  const span=top-ys-0.08-fr-0.07,tH=span*0.2,mH=span-tH,mY=ys+0.08,half=iw/2+0.025;
+  sash('frame',x0+fr,mY,half,mH,Z(-0.025),3,5,mainMat,0.05,0.028,dir);
+  sash('frame',x1-fr-half,mY,half,mH,Z(0.025),3,5,mainMat,0.05,0.028,dir);
+  const tY=mY+mH;pc('frame',(x0+x1)/2,tY+0.035,zc,w,0.07,0.11);
+  sash('frame',x0+fr,tY+0.07,iw/2,tH,zc,3,1,M.glassF,0.045,0.028,dir);
+  sash('frame',x0+fr+iw/2,tY+0.07,iw/2,tH,zc,3,1,M.glassF,0.045,0.028,dir);}
+function windowUnit(o){windowAt(o.x0,o.x1,o.y0,OPEN_TOP,ZJ,1,M.glassR);}
+// back elevation windows (same joinery, facing the back yard)
+const NBW=10,bayWB=L/NBW;
+for(let i=0;i<NBW;i++){const cx=-L/2+(i+.5)*bayWB,ww=bayWB-0.62;windowAt(cx-ww/2,cx+ww/2,BASE+0.03,3.68,ZB-0.07,-1,i<5?M.glassR:M.glassF);}
 function doorUnit(o){const {x0,w}=o,x1=o.x1,fr=0.075,y0=FLOOR+0.04;
   // granite threshold step, slightly proud of the wall
   box(w+0.04,0.06,WR+0.14,plinthMat,(x0+x1)/2,FLOOR+0.03,ZW+(WR+0.14)/2);
@@ -362,6 +365,7 @@ OPEN.forEach(o=>o.type==='W'?windowUnit(o):doorUnit(o));
 const JOINMAT={frame:new THREE.MeshStandardMaterial({color:0x8d8672,roughness:.7}),
   door:new THREE.MeshStandardMaterial({color:0xe2d6b9,roughness:.6}),   // warm ivory-white, sampled from photos (hue ~42°, low saturation)
   slat:new THREE.MeshStandardMaterial({color:0xe2d6b9,roughness:.65}),   // vent boards: same ivory as the doors
+  gap:new THREE.MeshStandardMaterial({color:0x3f3a32,roughness:.9}),
   metal:new THREE.MeshStandardMaterial({color:0xd8d4cc,metalness:.85,roughness:.3}),
   rust:new THREE.MeshStandardMaterial({color:0x8a5b3c,metalness:.3,roughness:.8})};
 const unitBox=new THREE.BoxGeometry(1,1,1);
@@ -385,10 +389,6 @@ M.corrFloor=new THREE.MeshStandardMaterial({map:corrFloorTex,roughness:.9});corr
 // ---------- back elevation ----------
 const NB=10, bayW=L/NB;
 for(let i=0;i<=NB;i++){const x=-L/2+i*bayW;box(0.5,WALL_TOP-BASE,0.16,M.white,Math.max(-L/2+0.25,Math.min(L/2-0.25,x)),(WALL_TOP+BASE)/2,ZB-0.08);}
-for(let i=0;i<NB;i++){const cx=-L/2+(i+.5)*bayW,z=ZB-0.03,ww=bayW-0.75;
-  plane(ww,2.25,i<5?M.winDark:M.winFrost,cx,2.55,z,Math.PI);
-  plane(ww,0.5,M.louver,cx,1.18,z-0.005,Math.PI);
-  box(ww+0.1,0.06,0.14,M.frame,cx,1.43,z-0.06);}
 // two hood canopies above back windows
 box(L/2-0.9,0.12,0.7,M.canopy,-L/4,3.88,ZB-0.35);box(L/2-0.9,0.12,0.7,M.canopy,L/4,3.88,ZB-0.35);
 // downpipes
