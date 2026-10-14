@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>穗花棋盤腳</title>
 <meta name="description" content="散文〈穗花棋盤腳〉的配樂動畫：花串垂掛、夜開晨落、蜂群循香、落白成雪。">
 <meta property="og:type" content="website">
@@ -13,6 +18,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@300;400&family=Noto+Serif+TC:wght@500;700&display=swap">
 <style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
 /* Layout: one full-bleed night-garden canvas; prose captions rise from the fallen white at the bottom; controls float at the top. */
 :root{
   color-scheme: dark;
@@ -64,6 +73,8 @@ body{background:var(--night);color:var(--ink);overflow:hidden;font-family:var(--
 .endline{font-family:var(--display);font-size:clamp(2.2rem,8vw,2.8rem);letter-spacing:.2em}
 @media (prefers-reduced-motion: reduce){.cap,.intro,.endcard{transition:none}}
 </style>
+</head>
+<body>
 
 <canvas id="cv" aria-label="穗花棋盤腳動畫：花串垂掛、夜開晨落、落白如雪"></canvas>
 <div class="scrim"></div>
@@ -408,3 +419,6 @@ let last=performance.now();
 (function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;update(dt);draw();requestAnimationFrame(loop);})(last);
 })();
 </script>
+
+</body>
+</html>
